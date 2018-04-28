@@ -51,6 +51,12 @@ def main(_):
     # SOLUTION: Pooling. Input = 28x28x6. Output = 14x14x6.
     conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
 
+    #  Image summaries
+    with tf.name_scope('Conv_1'):
+        conv1_sample = tf.transpose(conv1[0,:,:,:],perm=[2,0,1])
+        conv1_sample = tf.expand_dims(conv1_sample, axis = 3)
+        conv1_image = tf.summary.image("conv1", conv1_sample, max_outputs= 6)
+
     # SOLUTION: Layer 2: Convolutional. Output = 10x10x16.
     conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean= 0, stddev=0.1))
     conv2_b = tf.Variable(tf.zeros(16))
@@ -62,6 +68,12 @@ def main(_):
     # SOLUTION: Pooling. Input = 10x10x16. Output = 5x5x16.
     conv2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
 
+    #  Image summaries
+    with tf.name_scope('Conv_2'):
+        conv2_sample = tf.transpose(conv2[0,:,:,:],perm=[2,0,1])
+        conv2_sample = tf.expand_dims(conv2_sample, axis=3)
+        conv2_image = tf.summary.image("conv2", conv2_sample, max_outputs= 16)
+
     # SOLUTION: Layer 3: Input = 5x5x16. Output = 120.
     conv3_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 16, 120), mean= 0, stddev=0.1))
     conv3_b = tf.Variable(tf.zeros(120))
@@ -69,6 +81,12 @@ def main(_):
 
     # SOLUTION: Activation.
     conv3 = tf.nn.relu(conv3)
+
+    #  Image summaries
+    with tf.name_scope('Conv_3'):
+        conv3_sample = tf.transpose(conv3[0,:,:,:],perm=[2,0,1])
+        conv3_sample = tf.expand_dims(conv3_sample, axis=3)
+        conv3_image = tf.summary.image("conv3", conv3_sample, max_outputs= 120)
 
     # Removes dimensions of size 1 from the shape of a tensor.
     fc0=tf.squeeze(conv3)
@@ -111,7 +129,7 @@ def main(_):
 
     # 把所有的summary合到一张图上
     train_merged = tf.summary.merge([train_accuracy_scalar])
-    test_merged = tf.summary.merge([streaming_accuracy_scalar])
+    test_merged = tf.summary.merge([streaming_accuracy_scalar, conv1_image, conv2_image, conv3_image])
 
 
     with tf.Session() as sess:
