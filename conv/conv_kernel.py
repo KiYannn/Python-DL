@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-image = cv2.imread("image/0802.png")
+image = cv2.imread("image/0802.png",0)
 
 filter1 = np.array(
     [[0,0,0],
