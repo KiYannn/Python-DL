@@ -10,6 +10,7 @@ import os
 import argparse
 import tensorflow as tf
 import sys
+from tensorflow.python import debug as tf_debug
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -41,49 +42,49 @@ def main(_):
     # Expand dimension
     img = tf.expand_dims(img, -1)
     # SOLUTION: Layer 1: Convolutional. Input = 28x28x1. with padding 2x2 Output = 28x28x6.
-    conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 1, 6), mean = 0, stddev = 0.1))
-    conv1_b = tf.Variable(tf.zeros(6))
-    conv1   = tf.nn.conv2d(img, conv1_W, strides=[1, 1, 1, 1], padding='SAME') + conv1_b
-
-    # SOLUTION: Activation.
-    conv1 = tf.nn.relu(conv1)
-
-    # SOLUTION: Pooling. Input = 28x28x6. Output = 14x14x6.
-    conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
-
-    #  Image summaries
     with tf.name_scope('Conv_1'):
+        conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 1, 6), mean = 0, stddev = 0.1), name="Conv1_W")
+        conv1_b = tf.Variable(tf.zeros(6), name="Conv1_b")
+        conv1   = tf.nn.conv2d(img, conv1_W, strides=[1, 1, 1, 1], padding='SAME') + conv1_b
+
+        # SOLUTION: Activation.
+        conv1 = tf.nn.relu(conv1)
+
+        # SOLUTION: Pooling. Input = 28x28x6. Output = 14x14x6.
+        conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
+
+        #  Image summaries
         conv1_sample = tf.transpose(conv1[0,:,:,:],perm=[2,0,1])
         conv1_sample = tf.expand_dims(conv1_sample, axis = 3)
         conv1_image = tf.summary.image("conv1", conv1_sample, max_outputs= 6)
 
     # SOLUTION: Layer 2: Convolutional. Output = 10x10x16.
-    conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean= 0, stddev=0.1))
-    conv2_b = tf.Variable(tf.zeros(16))
-    conv2 = tf.nn.conv2d(conv1, conv2_W, strides=[1, 1, 1, 1], padding='VALID') + conv2_b
-
-    # SOLUTION: Activation.
-    conv2 = tf.nn.relu(conv2)
-
-    # SOLUTION: Pooling. Input = 10x10x16. Output = 5x5x16.
-    conv2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
-
-    #  Image summaries
     with tf.name_scope('Conv_2'):
+        conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean= 0, stddev=0.1),  name="Conv2_W")
+        conv2_b = tf.Variable(tf.zeros(16), name="Conv2_b")
+        conv2 = tf.nn.conv2d(conv1, conv2_W, strides=[1, 1, 1, 1], padding='VALID') + conv2_b
+
+        # SOLUTION: Activation.
+        conv2 = tf.nn.relu(conv2)
+
+        # SOLUTION: Pooling. Input = 10x10x16. Output = 5x5x16.
+        conv2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
+
+        #  Image summaries
         conv2_sample = tf.transpose(conv2[0,:,:,:],perm=[2,0,1])
         conv2_sample = tf.expand_dims(conv2_sample, axis=3)
         conv2_image = tf.summary.image("conv2", conv2_sample, max_outputs= 16)
 
     # SOLUTION: Layer 3: Input = 5x5x16. Output = 120.
-    conv3_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 16, 120), mean= 0, stddev=0.1))
-    conv3_b = tf.Variable(tf.zeros(120))
-    conv3 = tf.nn.conv2d(conv2, conv3_W, strides=[1, 1, 1, 1], padding='VALID') + conv3_b
-
-    # SOLUTION: Activation.
-    conv3 = tf.nn.relu(conv3)
-
-    #  Image summaries
     with tf.name_scope('Conv_3'):
+        conv3_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 16, 120), mean= 0, stddev=0.1), name="Conv3_W")
+        conv3_b = tf.Variable(tf.zeros(120), name="Conv3_b")
+        conv3 = tf.nn.conv2d(conv2, conv3_W, strides=[1, 1, 1, 1], padding='VALID') + conv3_b
+
+        # SOLUTION: Activation.
+        conv3 = tf.nn.relu(conv3)
+
+        #  Image summaries
         conv3_sample = tf.transpose(conv3[0,:,:,:],perm=[2,0,1])
         conv3_sample = tf.expand_dims(conv3_sample, axis=3)
         conv3_image = tf.summary.image("conv3", conv3_sample, max_outputs= 120)
@@ -92,17 +93,19 @@ def main(_):
     fc0=tf.squeeze(conv3)
 
     # SOLUTION: Layer 4: Fully Connected. Input = 120. Output = 84.
-    fc1_W = tf.Variable(tf.truncated_normal(shape=(120, 84), mean=0, stddev=0.1))
-    fc1_b = tf.Variable(tf.zeros(84))
-    fc1 = tf.matmul(fc0, fc1_W) + fc1_b
+    with tf.name_scope('fc_1'):
+        fc1_W = tf.Variable(tf.truncated_normal(shape=(120, 84), mean=0, stddev=0.1), name="fc1_W")
+        fc1_b = tf.Variable(tf.zeros(84),  name="fc1_b")
+        fc1 = tf.matmul(fc0, fc1_W) + fc1_b
 
-    # SOLUTION: Activation.
-    fc1 = tf.nn.relu(fc1)
+        # SOLUTION: Activation.
+        fc1 = tf.nn.relu(fc1)
 
     # SOLUTION: Layer 5: Fully Connected. Input = 84. Output = 10.
-    fc2_W = tf.Variable(tf.truncated_normal(shape=(84, 10), mean=0, stddev=0.1))
-    fc2_b = tf.Variable(tf.zeros(10))
-    z_2 = tf.matmul(fc1, fc2_W) + fc2_b
+    with tf.name_scope('fc_2'):
+        fc2_W = tf.Variable(tf.truncated_normal(shape=(84, 10), mean=0, stddev=0.1), name="fc2_W")
+        fc2_b = tf.Variable(tf.zeros(10), name="fc2_b")
+        z_2 = tf.matmul(fc1, fc2_W) + fc2_b
 
 
     # Step 5: define loss function
@@ -138,11 +141,19 @@ def main(_):
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
 
+        if FLAGS.debug == 'cli':
+            sess = tf_debug.LocalCLIDebugWrapperSession(sess, ui_type=FLAGS.ui_type)
+        else:
+            sess = tf_debug.TensorBoardDebugWrapperSession(
+                sess, FLAGS.tensorboard_debug_address)
+
         train_step = 0
         for _ in range(FLAGS.epochs):
             sess.run(train_init)
             try:
                 while True:
+
+
                     _, l, summaries = sess.run([optimizer, loss, train_merged])
                     train_writer.add_summary(summaries, global_step=train_step)
                     train_step += 1
@@ -176,5 +187,21 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size",default=1000,type=int) #每次训练批量
     parser.add_argument("--test_interval",default=10, type=int) #测试间隔
     parser.add_argument("--log_dir",default='log/')  #日志目录
+    parser.add_argument(
+        "--ui_type",
+        type=str,
+        default="curses",
+        help="Command-line user interface type (curses | readline)")
+    parser.add_argument(
+        "--debug",
+        default="cli",
+        help="Use debugger to track down bad values during training ( cli | tensorboard). ")
+    parser.add_argument(
+        "--tensorboard_debug_address",
+        type=str,
+        default=None,
+        help="Connect to the TensorBoard Debugger Plugin backend specified by "
+             "the gRPC address (e.g., localhost:1234). Mutually exclusive with the "
+             "--debug flag.")
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
