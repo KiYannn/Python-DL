@@ -1,6 +1,6 @@
 """
 MNIST LeNet模型
-TensorFlow v 1.7
+TensorFlow v 1.8
 """
 from __future__ import absolute_import, division, print_function
 
@@ -122,7 +122,7 @@ def main(_):
     correct_preds = tf.equal(tf.argmax(preds, 1), tf.argmax(label, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_preds, tf.float32))
 
-    streaming_accuracy, streaming_accuracy_update = tf.contrib.metrics.streaming_mean(correct_preds)
+    streaming_accuracy, streaming_accuracy_update = tf.metrics.mean(correct_preds)
 
 
     with tf.name_scope('Accuracy'):
