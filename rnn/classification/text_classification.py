@@ -19,19 +19,45 @@ from __future__ import print_function
 
 import argparse
 import sys
+import os
+import tarfile
 
 import numpy as np
 from sklearn import metrics
 import tensorflow as tf
-import rnn.classification.util as util
+from rnn.classification.vocabulary import Vocabulary
 
 FLAGS = None
 
-MAX_DOCUMENT_LENGTH = 10
 EMBEDDING_SIZE = 50
-n_words = 0
-MAX_LABEL = 15
-WORDS_FEATURE = 'words'  # Name of the input words feature.
+WORDS_FEATURE='word'
+MAX_LABEL=15
+
+DATA_DIR = 'data'
+DBPEDIA_URL = 'https://github.com/le-scientifique/torchDatasets/raw/master/dbpedia_csv.tar.gz'
+VOCAB_PATH = ''
+BATCH_SIZE = 100
+
+def train_input_fn(vocab):
+    train_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv', 'train.csv')
+    train_dataset = tf.data.TextLineDataset(train_path).map(vocab.parseLine)
+
+    if FLAGS.small:
+        train_dataset = train_dataset.shuffle(1000)
+
+    train_dataset = train_dataset.batch(BATCH_SIZE)
+
+    return train_dataset
+
+
+def test_input_fn(vocab):
+    test_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv' ,'test.csv')
+    test_dataset = tf.data.TextLineDataset(test_path).map(vocab.parseLine)
+
+    if FLAGS.small:
+        test_dataset = test_dataset.shuffle(1000)
+
+    return test_dataset
 
 
 def estimator_spec_for_softmax_classification(logits, labels, mode):
@@ -105,72 +131,49 @@ def main(_):
     global n_words
     tf.logging.set_verbosity(tf.logging.INFO)
 
-    # Prepare training and testing data
-    if FLAGS.small:
-        train_dataset, test_dataset = util.load_dbpedia(size = 'small' )
-    else:
-        train_dataset, test_dataset = util.load_dbpedia()
+    if not tf.gfile.Exists(sys.path[0] +'/'+ DATA_DIR):
+        tf.gfile.MakeDirs(sys.path[0] +'/'+ DATA_DIR)
+        fname = os.path.join(sys.path[0], DATA_DIR, DBPEDIA_URL.split('/')[-1])
+        tf.keras.utils.get_file(fname, DBPEDIA_URL, extract = True)
+        zipped_file = tarfile.open(fname,'r:*')
+        zipped_file.extractall(sys.path[0] +'/'+ DATA_DIR)
 
-  # Process vocabulary
-  vocab_processor = tf.contrib.learn.preprocessing.VocabularyProcessor(
-      MAX_DOCUMENT_LENGTH)
+        print('Successfully downloaded', fname)
 
-  x_transform_train = vocab_processor.fit_transform(x_train)
-  x_transform_test = vocab_processor.transform(x_test)
+    train_path = os.path.join(sys.path[0] ,DATA_DIR, 'dbpedia_csv', 'train.csv')
+    vocab = Vocabulary(train_path)
 
-  x_train = np.array(list(x_transform_train))
-  x_test = np.array(list(x_transform_test))
+    # Build model
+    # Switch between rnn_model and bag_of_words_model to test different models.
+    model_fn = rnn_model
+    if FLAGS.bow_model:
+        # Subtract 1 because VocabularyProcessor outputs a word-id matrix where word
+        # ids start from 1 and 0 means 'no word'. But
+        # categorical_column_with_identity assumes 0-based count and uses -1 for
+        # missing word.
+        model_fn = bag_of_words_model
+    classifier = tf.estimator.Estimator(model_fn=model_fn)
 
-  n_words = len(vocab_processor.vocabulary_)
-  print('Total words: %d' % n_words)
+    # Train.
+    classifier.train(input_fn=lambda:train_input_fn(vocab), steps=100)
 
-  # Build model
-  # Switch between rnn_model and bag_of_words_model to test different models.
-  model_fn = rnn_model
-  if FLAGS.bow_model:
-    # Subtract 1 because VocabularyProcessor outputs a word-id matrix where word
-    # ids start from 1 and 0 means 'no word'. But
-    # categorical_column_with_identity assumes 0-based count and uses -1 for
-    # missing word.
-    x_train -= 1
-    x_test -= 1
-    model_fn = bag_of_words_model
-  classifier = tf.estimator.Estimator(model_fn=model_fn)
+    # Score with tensorflow.
+    scores = classifier.evaluate(input_fn=lambda: test_input_fn(vocab))
+    print('Accuracy (tensorflow): {0:f}'.format(scores['accuracy']))
 
-  # Train.
-  train_input_fn = tf.estimator.inputs.numpy_input_fn(
-      x={WORDS_FEATURE: x_train},
-      y=y_train,
-      batch_size=len(x_train),
-      num_epochs=None,
-      shuffle=True)
-  classifier.train(input_fn=train_input_fn, steps=100)
-
-  # Predict.
-  test_input_fn = tf.estimator.inputs.numpy_input_fn(
-      x={WORDS_FEATURE: x_test}, y=y_test, num_epochs=1, shuffle=False)
-  predictions = classifier.predict(input_fn=test_input_fn)
-  y_predicted = np.array(list(p['class'] for p in predictions))
-  y_predicted = y_predicted.reshape(np.array(y_test).shape)
-
-  # Score with sklearn.
-  score = metrics.accuracy_score(y_test, y_predicted)
-  print('Accuracy (sklearn): {0:f}'.format(score))
-
-  # Score with tensorflow.
-  scores = classifier.evaluate(input_fn=test_input_fn)
-  print('Accuracy (tensorflow): {0:f}'.format(scores['accuracy']))
-
+    # Predict.
+    predictions = classifier.predict(input_fn=test_input_fn)
+    y_predicted = np.array(list(p['class'] for p in predictions))
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
-  parser.add_argument(
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
       '--small',
       default=False,
       help='load 1000 record only.')
-  parser.add_argument(
+    parser.add_argument(
       '--bow_model',
       default=False,
       help='Run with BOW model instead of RNN.')
-  FLAGS, unparsed = parser.parse_known_args()
-  tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    FLAGS, unparsed = parser.parse_known_args()
+    tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
