@@ -23,7 +23,7 @@ import os
 import tarfile
 
 import numpy as np
-from sklearn import metrics
+import pandas as pd
 import tensorflow as tf
 from rnn.classification.vocabulary import Vocabulary
 
@@ -37,10 +37,15 @@ DATA_DIR = 'data'
 DBPEDIA_URL = 'https://github.com/le-scientifique/torchDatasets/raw/master/dbpedia_csv.tar.gz'
 VOCAB_PATH = ''
 BATCH_SIZE = 100
+CVS_COLUMN_NAME = ['Category','Name','Text']
 
 def train_input_fn(vocab):
     train_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv', 'train.csv')
-    train_dataset = tf.data.TextLineDataset(train_path).map(vocab.parseLine)
+    train = pd.read_csv(train_path, names=CVS_COLUMN_NAME, header=0)
+    data = train.pop('Text')
+    category = train.pop('Category')
+    train_dataset = tf.data.Dataset.from_tensor_slices(data, category)
+    train_dataset = train_dataset.map(vocab.parseLine)
 
     if FLAGS.small:
         train_dataset = train_dataset.shuffle(1000)
@@ -52,7 +57,11 @@ def train_input_fn(vocab):
 
 def test_input_fn(vocab):
     test_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv' ,'test.csv')
-    test_dataset = tf.data.TextLineDataset(test_path).map(vocab.parseLine)
+    test = pd.read_csv(test_path, names=CVS_COLUMN_NAME, header=0)
+    data = test.pop('Text')
+    category = test.pop('Category')
+    test_dataset = tf.data.Dataset.from_tensor_slices(data, category)
+    test_dataset = test_dataset.map(vocab.parseLine)
 
     if FLAGS.small:
         test_dataset = test_dataset.shuffle(1000)

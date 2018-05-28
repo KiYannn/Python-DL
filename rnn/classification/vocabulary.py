@@ -14,7 +14,7 @@ class Vocabulary(object):
         data = tl.nlp.basic_tokenizer(text[0])
         return [self.vocab[word] for word in data if word in self.vocab]
 
-    def parseLine(self, line):
-        fields = tf.decode_csv([line], record_defaults=[[0], [''], ['']])
+    def parseLine(self, text, category):
+        fields = tf.decode_csv([text], record_defaults=[[0], [''], ['']])
         text_embeddings = self.text_to_word_ids(fields[2])
-        return text_embeddings, fields[0]
+        return text_embeddings, category
