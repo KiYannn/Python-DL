@@ -44,7 +44,7 @@ def train_input_fn(vocab):
     train = pd.read_csv(train_path, names=CVS_COLUMN_NAME, header=0)
     data = train.pop('Text')
     category = train.pop('Category')
-    train_dataset = tf.data.Dataset.from_tensor_slices(data, category)
+    train_dataset = tf.data.Dataset.from_tensor_slices((data, category))
     train_dataset = train_dataset.map(vocab.parseLine)
 
     if FLAGS.small:
@@ -60,7 +60,7 @@ def test_input_fn(vocab):
     test = pd.read_csv(test_path, names=CVS_COLUMN_NAME, header=0)
     data = test.pop('Text')
     category = test.pop('Category')
-    test_dataset = tf.data.Dataset.from_tensor_slices(data, category)
+    test_dataset = tf.data.Dataset.from_tensor_slices((data, category))
     test_dataset = test_dataset.map(vocab.parseLine)
 
     if FLAGS.small:

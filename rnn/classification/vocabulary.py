@@ -10,11 +10,7 @@ class Vocabulary(object):
         self.vocab = tl.nlp.build_vocab(tl.nlp.read_words(filename))
 
 
-    def text_to_word_ids(self, text):
-        data = tl.nlp.basic_tokenizer(text[0])
-        return [self.vocab[word] for word in data if word in self.vocab]
-
     def parseLine(self, text, category):
-        fields = tf.decode_csv([text], record_defaults=[[0], [''], ['']])
-        text_embeddings = self.text_to_word_ids(fields[2])
+        data = tl.nlp.basic_tokenizer(text)
+        text_embeddings = [self.vocab[word] for word in data if word in self.vocab]
         return text_embeddings, category
