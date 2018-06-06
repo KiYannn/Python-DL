@@ -25,12 +25,12 @@ import tarfile
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from rnn.classification.vocabulary import Vocabulary
+import tensorlayer as tl
 
 FLAGS = None
 
+MAX_DOCUMENT_LENGTH = 10
 EMBEDDING_SIZE = 50
-WORDS_FEATURE='word'
 MAX_LABEL=15
 
 DATA_DIR = 'data'
@@ -39,17 +39,29 @@ VOCAB_PATH = ''
 BATCH_SIZE = 100
 CVS_COLUMN_NAME = ['Category','Name','Text']
 
+def load_dataset(file_path, vocab):
+    csv = pd.read_csv(file_path, names=CVS_COLUMN_NAME, header=0)
+    data = csv.pop('Text').values
+    category = csv.pop('Category').values
+
+    text_embedings = []
+    for text in data:
+        desc = tl.nlp.process_sentence(text, start_word=None, end_word=None,  )
+        embedding = tl.nlp.words_to_word_ids(desc, word_to_id= vocab)
+        text_embedings.append(embedding)
+
+    text_embedings = tl.prepro.pad_sequences(text_embedings, maxlen=MAX_DOCUMENT_LENGTH)
+    dataset = tf.data.Dataset.from_tensor_slices(({"Text":text_embedings}, category))
+    if FLAGS.small:
+        dataset = dataset.shuffle(1000)
+
+    return dataset
+
+
 def train_input_fn(vocab):
     train_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv', 'train.csv')
-    train = pd.read_csv(train_path, names=CVS_COLUMN_NAME, header=0)
-    data = train.pop('Text')
-    category = train.pop('Category')
-    train_dataset = tf.data.Dataset.from_tensor_slices((data, category))
-    train_dataset = train_dataset.map(vocab.parseLine)
 
-    if FLAGS.small:
-        train_dataset = train_dataset.shuffle(1000)
-
+    train_dataset = load_dataset(train_path, vocab)
     train_dataset = train_dataset.batch(BATCH_SIZE)
 
     return train_dataset
@@ -57,15 +69,9 @@ def train_input_fn(vocab):
 
 def test_input_fn(vocab):
     test_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv' ,'test.csv')
-    test = pd.read_csv(test_path, names=CVS_COLUMN_NAME, header=0)
-    data = test.pop('Text')
-    category = test.pop('Category')
-    test_dataset = tf.data.Dataset.from_tensor_slices((data, category))
-    test_dataset = test_dataset.map(vocab.parseLine)
-
+    test_dataset = load_dataset(test_path, vocab)
     if FLAGS.small:
         test_dataset = test_dataset.shuffle(1000)
-
     return test_dataset
 
 
@@ -97,7 +103,7 @@ def estimator_spec_for_softmax_classification(logits, labels, mode):
 def bag_of_words_model(features, labels, mode):
   """A bag-of-words model. Note it disregards the word order in the text."""
   bow_column = tf.feature_column.categorical_column_with_identity(
-      WORDS_FEATURE, num_buckets=n_words)
+      key='Text', num_buckets=n_words)
   bow_embedding_column = tf.feature_column.embedding_column(
       bow_column, dimension=EMBEDDING_SIZE)
   bow = tf.feature_column.input_layer(
@@ -115,7 +121,7 @@ def rnn_model(features, labels, mode):
   # maps word indexes of the sequence into [batch_size, sequence_length,
   # EMBEDDING_SIZE].
   word_vectors = tf.contrib.layers.embed_sequence(
-      features[WORDS_FEATURE], vocab_size=n_words, embed_dim=EMBEDDING_SIZE)
+      features['Text'], vocab_size=n_words, embed_dim=EMBEDDING_SIZE)
 
   # Split into list of embedding per word, while removing doc length dim.
   # word_list results to be a list of tensors [batch_size, EMBEDDING_SIZE].
@@ -149,8 +155,13 @@ def main(_):
 
         print('Successfully downloaded', fname)
 
+
     train_path = os.path.join(sys.path[0] ,DATA_DIR, 'dbpedia_csv', 'train.csv')
-    vocab = Vocabulary(train_path)
+    vocab = tl.nlp.build_vocab(tl.nlp.read_words(train_path))
+    n_words = len(vocab)
+    vocab['UNK'] = n_words
+    n_words += 1
+
 
     # Build model
     # Switch between rnn_model and bag_of_words_model to test different models.
