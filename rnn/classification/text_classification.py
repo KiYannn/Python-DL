@@ -51,6 +51,7 @@ def load_dataset(file_path, vocab):
         text_embedings.append(embedding)
 
     text_embedings = tl.prepro.pad_sequences(text_embedings, maxlen=MAX_DOCUMENT_LENGTH)
+    category = tf.one_hot(category,depth= MAX_LABEL)
     dataset = tf.data.Dataset.from_tensor_slices(({"Text":text_embedings}, category))
     if FLAGS.small:
         dataset = dataset.shuffle(1000)
@@ -70,14 +71,14 @@ def train_input_fn(vocab):
 def test_input_fn(vocab):
     test_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv' ,'test.csv')
     test_dataset = load_dataset(test_path, vocab)
-    if FLAGS.small:
-        test_dataset = test_dataset.shuffle(1000)
+    test_dataset = test_dataset.batch(BATCH_SIZE)
     return test_dataset
 
 
 def estimator_spec_for_softmax_classification(logits, labels, mode):
   """Returns EstimatorSpec instance for softmax classification."""
   predicted_classes = tf.argmax(logits, 1)
+  predicted_classes = tf.one_hot(predicted_classes, MAX_LABEL)
   if mode == tf.estimator.ModeKeys.PREDICT:
     return tf.estimator.EstimatorSpec(
         mode=mode,
@@ -86,7 +87,7 @@ def estimator_spec_for_softmax_classification(logits, labels, mode):
             'prob': tf.nn.softmax(logits)
         })
 
-  loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+  loss = tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
   if mode == tf.estimator.ModeKeys.TRAIN:
     optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
@@ -172,7 +173,7 @@ def main(_):
         # categorical_column_with_identity assumes 0-based count and uses -1 for
         # missing word.
         model_fn = bag_of_words_model
-    classifier = tf.estimator.Estimator(model_fn=model_fn)
+    classifier = tf.estimator.Estimator(model_fn=model_fn, model_dir='ckpt/')
 
     # Train.
     classifier.train(input_fn=lambda:train_input_fn(vocab), steps=100)
@@ -182,7 +183,7 @@ def main(_):
     print('Accuracy (tensorflow): {0:f}'.format(scores['accuracy']))
 
     # Predict.
-    predictions = classifier.predict(input_fn=test_input_fn)
+    predictions = classifier.predict(input_fn=test_input_fn(vocab))
     y_predicted = np.array(list(p['class'] for p in predictions))
 
 if __name__ == '__main__':
@@ -193,7 +194,7 @@ if __name__ == '__main__':
       help='load 1000 record only.')
     parser.add_argument(
       '--bow_model',
-      default=False,
+      default=True,
       help='Run with BOW model instead of RNN.')
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
