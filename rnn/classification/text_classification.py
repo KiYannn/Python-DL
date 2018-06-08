@@ -78,7 +78,7 @@ def test_input_fn(vocab):
 def estimator_spec_for_softmax_classification(logits, labels, mode):
   """Returns EstimatorSpec instance for softmax classification."""
   predicted_classes = tf.argmax(logits, 1)
-  predicted_classes = tf.one_hot(predicted_classes, MAX_LABEL)
+  predicted_onehot = tf.one_hot(predicted_classes, MAX_LABEL)
   if mode == tf.estimator.ModeKeys.PREDICT:
     return tf.estimator.EstimatorSpec(
         mode=mode,
@@ -95,7 +95,7 @@ def estimator_spec_for_softmax_classification(logits, labels, mode):
 
   eval_metric_ops = {
       'accuracy':
-          tf.metrics.accuracy(labels=labels, predictions=predicted_classes)
+          tf.metrics.accuracy(labels=labels, predictions=predicted_onehot)
   }
   return tf.estimator.EstimatorSpec(
       mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
@@ -183,8 +183,9 @@ def main(_):
     print('Accuracy (tensorflow): {0:f}'.format(scores['accuracy']))
 
     # Predict.
-    predictions = classifier.predict(input_fn=test_input_fn(vocab))
+    predictions = classifier.predict(input_fn=lambda: test_input_fn(vocab))
     y_predicted = np.array(list(p['class'] for p in predictions))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
