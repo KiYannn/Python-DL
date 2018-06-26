@@ -195,7 +195,7 @@ if __name__ == '__main__':
       help='load 1000 record only.')
     parser.add_argument(
       '--bow_model',
-      default=True,
+      default=False,
       help='Run with BOW model instead of RNN.')
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
