@@ -88,14 +88,15 @@ def estimator_spec_for_softmax_classification(logits, labels, mode):
         })
 
   loss = tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
+  accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_onehot)
+  tf.summary.scalar(accuracy)
   if mode == tf.estimator.ModeKeys.TRAIN:
     optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
   eval_metric_ops = {
-      'accuracy':
-          tf.metrics.accuracy(labels=labels, predictions=predicted_onehot)
+      'accuracy':accuracy
   }
   return tf.estimator.EstimatorSpec(
       mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
@@ -176,7 +177,7 @@ def main(_):
     classifier = tf.estimator.Estimator(model_fn=model_fn, model_dir='ckpt/')
 
     # Train.
-    classifier.train(input_fn=lambda:train_input_fn(vocab), steps=100)
+    classifier.train(input_fn=lambda:train_input_fn(vocab), steps=None)
 
     # Score with tensorflow.
     scores = classifier.evaluate(input_fn=lambda: test_input_fn(vocab))
