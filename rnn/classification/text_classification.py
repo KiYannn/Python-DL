@@ -22,10 +22,14 @@ import sys
 import os
 import tarfile
 
-import numpy as np
+from tensorflow.contrib.learn import Experiment
 import pandas as pd
 import tensorflow as tf
 import tensorlayer as tl
+
+from tensorflow.python import debug as tf_debug
+
+hooks = [tf_debug.LocalCLIDebugHook()]
 
 FLAGS = None
 
@@ -66,14 +70,14 @@ def train_input_fn(vocab):
     train_dataset = train_dataset.repeat(3)
     train_dataset = train_dataset.batch(BATCH_SIZE)
 
-    return train_dataset
+    return train_dataset.make_one_shot_iterator().get_next()
 
 
 def test_input_fn(vocab):
     test_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv' ,'test.csv')
     test_dataset = load_dataset(test_path, vocab)
     test_dataset = test_dataset.batch(BATCH_SIZE)
-    return test_dataset
+    return test_dataset.make_one_shot_iterator().get_next()
 
 
 def estimator_spec_for_softmax_classification(logits, labels, mode):
@@ -178,11 +182,25 @@ def main(_):
     classifier = tf.estimator.Estimator(model_fn=model_fn, model_dir='ckpt/')
 
     # Train.
-    classifier.train(input_fn=lambda:train_input_fn(vocab), steps=None)
+    #classifier.train(input_fn=lambda:train_input_fn(vocab), steps=1000)
 
     # Score with tensorflow.
-    scores = classifier.evaluate(input_fn=lambda: test_input_fn(vocab))
-    print('Accuracy (tensorflow): {0:f}'.format(scores['accuracy']))
+    #scores = classifier.evaluate(input_fn=lambda: test_input_fn(vocab))
+
+    #debug
+    ex = Experiment(classifier,
+                    train_input_fn=lambda:train_input_fn(vocab),
+                    eval_input_fn=lambda: test_input_fn(vocab),
+                    train_steps=1000,
+                    eval_delay_secs=0,
+                    eval_steps=1,
+                    train_monitors=hooks,
+                    eval_hooks=hooks)
+
+    ex.train()
+    scores = ex.evaluate()
+
+    print('Accuracy: {0:f}'.format(scores['accuracy']))
 
     # Predict.
     #predictions = classifier.predict(input_fn=lambda: test_input_fn(vocab))
