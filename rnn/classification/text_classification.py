@@ -182,12 +182,14 @@ def main(_):
     classifier = tf.estimator.Estimator(model_fn=model_fn, model_dir='ckpt/')
 
     # Train.
-    #classifier.train(input_fn=lambda:train_input_fn(vocab), steps=1000)
+    classifier.train(input_fn=lambda:train_input_fn(vocab), steps=1000)
 
     # Score with tensorflow.
-    #scores = classifier.evaluate(input_fn=lambda: test_input_fn(vocab))
+    scores = classifier.evaluate(input_fn=lambda: test_input_fn(vocab))
 
     #debug
+    '''
+    
     ex = Experiment(classifier,
                     train_input_fn=lambda:train_input_fn(vocab),
                     eval_input_fn=lambda: test_input_fn(vocab),
@@ -199,6 +201,7 @@ def main(_):
 
     ex.train()
     scores = ex.evaluate()
+    '''
 
     print('Accuracy: {0:f}'.format(scores['accuracy']))
 
@@ -215,7 +218,7 @@ if __name__ == '__main__':
       help='load 1000 record only.')
     parser.add_argument(
       '--bow_model',
-      default=False,
+      default=True,
       help='Run with BOW model instead of RNN.')
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
