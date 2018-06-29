@@ -36,7 +36,7 @@ MAX_LABEL=15
 DATA_DIR = 'data'
 DBPEDIA_URL = 'https://github.com/le-scientifique/torchDatasets/raw/master/dbpedia_csv.tar.gz'
 VOCAB_PATH = ''
-BATCH_SIZE = 100
+BATCH_SIZE = 10
 CVS_COLUMN_NAME = ['Category','Name','Text']
 
 def load_dataset(file_path, vocab):
@@ -63,6 +63,7 @@ def train_input_fn(vocab):
     train_path = os.path.join(sys.path[0], DATA_DIR, 'dbpedia_csv', 'train.csv')
 
     train_dataset = load_dataset(train_path, vocab)
+    train_dataset = train_dataset.repeat(3)
     train_dataset = train_dataset.batch(BATCH_SIZE)
 
     return train_dataset
@@ -89,7 +90,7 @@ def estimator_spec_for_softmax_classification(logits, labels, mode):
 
   loss = tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
   accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_onehot)
-  tf.summary.scalar(accuracy)
+  tf.summary.scalar('Accuracy', accuracy[1])
   if mode == tf.estimator.ModeKeys.TRAIN:
     optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
@@ -184,8 +185,8 @@ def main(_):
     print('Accuracy (tensorflow): {0:f}'.format(scores['accuracy']))
 
     # Predict.
-    predictions = classifier.predict(input_fn=lambda: test_input_fn(vocab))
-    y_predicted = np.array(list(p['class'] for p in predictions))
+    #predictions = classifier.predict(input_fn=lambda: test_input_fn(vocab))
+    #y_predicted = np.array(list(p['class'] for p in predictions))
 
 
 if __name__ == '__main__':
